@@ -21,7 +21,14 @@ from .box_ops import box_cxcywh_to_xyxy
 
 from .geometry_encoders import Prompt
 from .model_misc import inverse_sigmoid
+import torch, pprint
 
+def pp_shapes(x, *, width=120, sort_dicts=False):
+    rec = lambda y: {k: rec(v) for k, v in y.items()} if isinstance(y, dict) \
+        else [rec(v) for v in y] if isinstance(y, (list, tuple)) \
+        else tuple(y.shape) if torch.is_tensor(y) \
+        else type(y).__name__
+    pprint.pp(rec(x), sort_dicts=sort_dicts, width=width)
 
 def _update_out(out, out_name, out_value, auxiliary=True, update_aux=True):
     out[out_name] = out_value[-1] if auxiliary else out_value
@@ -424,7 +431,8 @@ class Sam3Image(torch.nn.Module):
                     out[k] = v
         else:
             backbone_out.pop("backbone_fpn", None)
-
+        return seg_head_outputs
+    
     def _get_best_mask(self, out):
         prev_mask_idx = out["pred_logits"].argmax(dim=1).squeeze(1)
         batch_idx = torch.arange(
@@ -446,6 +454,7 @@ class Sam3Image(torch.nn.Module):
         find_target,
         geometric_prompt: Prompt,
     ):
+        alignment_elements = {}
         with torch.profiler.record_function("SAM3Image._encode_prompt"):
             prompt, prompt_mask, backbone_out = self._encode_prompt(
                 backbone_out, find_input, geometric_prompt
@@ -462,7 +471,7 @@ class Sam3Image(torch.nn.Module):
                 "backbone_out": backbone_out,
             },
         }
-
+        alignment_elements["encoder_hidden_states"] = encoder_out["encoder_hidden_states"]
         # Run the decoder
         with torch.profiler.record_function("SAM3Image._run_decoder"):
             out, hs = self._run_decoder(
@@ -474,10 +483,10 @@ class Sam3Image(torch.nn.Module):
                 prompt_mask=prompt_mask,
                 encoder_out=encoder_out,
             )
-
+        alignment_elements["decoder_hidden_states"] = hs
         # Run segmentation heads
         with torch.profiler.record_function("SAM3Image._run_segmentation_heads"):
-            self._run_segmentation_heads(
+            seg_head_outputs = self._run_segmentation_heads(
                 out=out,
                 backbone_out=backbone_out,
                 img_ids=find_input.img_ids,
@@ -487,7 +496,10 @@ class Sam3Image(torch.nn.Module):
                 prompt_mask=prompt_mask,
                 hs=hs,
             )
+        alignment_elements["seg_head_outputs"] = seg_head_outputs["instance_embeds"]
 
+
+        out["alignment_elements"] = alignment_elements
         if self.training or self.num_interactive_steps_val > 0:
             self._compute_matching(out, self.back_convert(find_target))
         return out

@@ -853,11 +853,12 @@ def visualize_prompt_overlay(
     plt.show()
 
 
-def plot_results(img, results):
+def plot_results(img, results, out_path=None):
     plt.figure(figsize=(12, 8))
     plt.imshow(img)
     nb_objects = len(results["scores"])
     print(f"found {nb_objects} object(s)")
+    # plot_mask(results["segmentation_segments"][0].squeeze(0).cpu(), color='red')
     for i in range(nb_objects):
         color = COLORS[i % len(COLORS)]
         plot_mask(results["masks"][i].squeeze(0).cpu(), color=color)
@@ -872,6 +873,10 @@ def plot_results(img, results):
             color=color,
             relative_coords=False,
         )
+    if out_path is not None:
+        plt.savefig(out_path)
+        
+    return plt.gcf()
 
 
 def single_visualization(img, anns, title):

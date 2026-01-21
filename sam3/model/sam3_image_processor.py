@@ -110,19 +110,49 @@ class Sam3Processor:
         return state
 
     @torch.inference_mode()
-    def set_text_prompt(self, prompt: str, state: Dict):
+    def set_text_prompt(self, prompt: str|list[str], state: Dict):
         """Sets the text prompt and run the inference"""
 
         if "backbone_out" not in state:
             raise ValueError("You must call set_image before set_text_prompt")
 
-        text_outputs = self.model.backbone.forward_text([prompt], device=self.device)
+        text_outputs = self.model.backbone.forward_text(prompt if isinstance(prompt, list) else [prompt], device=self.device)
+        # Oneline: print shapes of each value in text_outputs
+        # print({k: (v.shape if isinstance(v, torch.Tensor) else [x.shape for x in v] if isinstance(v, (list, tuple)) and v and isinstance(v[0], torch.Tensor) else type(v)) for k, v in text_outputs.items()})
+        # print(text_outputs['language_features'].shape)
+        # print(text_outputs['language_mask'][0])
+        
+        
+        # last_idx = (text_outputs['language_mask'][0] == False).nonzero(as_tuple=True)[0][-1].item()
+        # print(last_idx)
+        # print(text_outputs['language_features'][text_outputs['language_mask'][0] == False])
+        
         # will erase the previous text prompt if any
+        # text_outputs['language_mask'] |= True
         state["backbone_out"].update(text_outputs)
         if "geometric_prompt" not in state:
             state["geometric_prompt"] = self.model._get_dummy_prompt()
 
         return self._forward_grounding(state)
+
+    @torch.inference_mode()
+    def set_text_outputs(self, text_outputs: Dict, state: Dict):
+        """Sets the text outputs and run the inference"""
+        print("NOT USING SAM3 TEXT ENCODERS!!")
+        if "backbone_out" not in state:
+            raise ValueError("You must call set_image before set_text_prompt")
+
+        # Oneline: print shapes of each value in text_outputs
+        print({k: (v.shape if isinstance(v, torch.Tensor) else [x.shape for x in v] if isinstance(v, (list, tuple)) and v and isinstance(v[0], torch.Tensor) else type(v)) for k, v in text_outputs.items()})
+        print(text_outputs['language_features'].shape)
+        # will erase the previous text prompt if any
+        # text_outputs['language_mask'] |= True
+        state["backbone_out"].update(text_outputs)
+        if "geometric_prompt" not in state:
+            state["geometric_prompt"] = self.model._get_dummy_prompt()
+
+        return self._forward_grounding(state)
+
 
     @torch.inference_mode()
     def add_geometric_prompt(self, box: List, label: bool, state: Dict):
@@ -219,4 +249,7 @@ class Sam3Processor:
         state["masks"] = out_masks > 0.5
         state["boxes"] = boxes
         state["scores"] = out_probs
+        state["segmentation_segments"] = outputs["semantic_seg"]
+        state["alignment_elements"] = outputs["alignment_elements"]
+        
         return state
