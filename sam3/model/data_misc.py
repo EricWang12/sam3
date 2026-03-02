@@ -110,6 +110,7 @@ class BatchedFindTarget:
     is_valid_segment: Optional[MyTensor]
     is_valid_segment__type = torch.bool
 
+
     # Whether annotations are exhaustive for each query
     is_exhaustive: MyTensor
     is_exhaustive__type = torch.bool
@@ -120,6 +121,9 @@ class BatchedFindTarget:
     object_ids_padded: MyTensor
     object_ids_padded__type = torch.long
 
+    # Target Motion directions
+    motion_directions: Optional[MyTensor] = None
+    motion_directions__type = torch.float
 
 @dataclass
 class BatchedInferenceMetadata:

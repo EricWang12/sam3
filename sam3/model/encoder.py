@@ -440,6 +440,8 @@ class TransformerEncoder(nn.Module):
                 assert self.use_act_checkpoint, "activation ckpt not enabled in encoder"
             if encoder_extra_kwargs is not None:
                 layer_kwargs.update(encoder_extra_kwargs)
+                
+            # Return this for alignment??
             output = activation_ckpt_wrapper(layer)(
                 **layer_kwargs,
                 act_ckpt_enable=self.training and self.use_act_checkpoint,

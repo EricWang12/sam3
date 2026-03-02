@@ -873,6 +873,9 @@ def plot_results(img, results, out_path=None):
             color=color,
             relative_coords=False,
         )
+        
+    plt.tight_layout()
+    plt.axis("off")
     if out_path is not None:
         plt.savefig(out_path)
         
